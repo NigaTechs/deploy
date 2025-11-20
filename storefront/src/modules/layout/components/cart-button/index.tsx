@@ -1,24 +1,34 @@
-import { notFound } from "next/navigation"
-import CartDropdown from "../cart-dropdown"
-import { enrichLineItems, retrieveCart } from "@lib/data/cart"
+"use client"
 
-const fetchCart = async () => {
-  const cart = await retrieveCart()
+import { ShoppingCart } from "lucide-react"
+import Link from "next/link"
+import { useCart } from "medusa-react"
+import clsx from "clsx"
 
-  if (!cart) {
-    return null
-  }
+export default function CartButton() {
 
-  if (cart?.items?.length) {
-    const enrichedItems = await enrichLineItems(cart.items, cart.region_id!)
-    cart.items = enrichedItems
-  }
+  const { cart } = useCart()
+const itemsCount =
+  cart?.items?.reduce((acc: number, item: { quantity: number }) => acc + item.quantity, 0) || 0
 
-  return cart
-}
+  return (
+    <Link
+      href="/cart"
+      className="relative flex items-center justify-center w-10 h-10"
+      data-testid="nav-cart-link"
+    >
+      <ShoppingCart className="w-6 h-6 text-ui-fg-base hover:text-ui-fg-interactive transition-colors duration-150" />
 
-export default async function CartButton() {
-  const cart = await fetchCart()
-
-  return <CartDropdown cart={cart} />
+      {itemsCount > 0 && (
+        <span
+          className={clsx(
+            "absolute -top-1 -right-1 bg-red-600 text-white text-[11px]",
+            "rounded-full w-5 h-5 flex items-center justify-center font-medium"
+          )}
+        >
+          {itemsCount}
+        </span>
+      )}
+    </Link>
+  )
 }

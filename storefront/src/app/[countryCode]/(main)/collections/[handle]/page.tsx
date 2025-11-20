@@ -1,88 +1,53 @@
-import { Metadata } from "next"
+import { getCollectionsWithProducts } from "@lib/data/collections"
+import { getRegion } from "@lib/data/regions"
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 
-import {
-  getCollectionByHandle,
-  getCollectionsList,
-} from "@lib/data/collections"
-import { listRegions } from "@lib/data/regions"
-import { StoreCollection, StoreRegion } from "@medusajs/types"
-import CollectionTemplate from "@modules/collections/templates"
-import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
+import ProductPreview from "@modules/products/components/product-preview"
+import { StoreCollection } from "@medusajs/types"
 
-type Props = {
-  params: { handle: string; countryCode: string }
-  searchParams: {
-    page?: string
-    sortBy?: SortOptions
-  }
+export const dynamic = "force-dynamic"
+
+export default async function Home({
+  params,
+}: {
+  params: { countryCode: string }
+}) {
+  const { countryCode } = params
+
+  // 🔥 fetch all collections + their products
+  const collections = await getCollectionsWithProducts(countryCode)
+  const region = (await getRegion(countryCode)) ?? ({} as any)
+
+
+if (!region) {
+  console.warn("⚠️ No region found for:", countryCode)
+}
+if (!collections || collections.length === 0) {
+  console.warn("⚠️ No collections for:", countryCode)
 }
 
-export const PRODUCT_LIMIT = 12
 
-export async function generateStaticParams() {
-  const { collections } = await getCollectionsList()
-
-  if (!collections) {
-    return []
-  }
-
-  const countryCodes = await listRegions().then(
-    (regions: StoreRegion[]) =>
-      regions
-        ?.map((r) => r.countries?.map((c) => c.iso_2))
-        .flat()
-        .filter(Boolean) as string[]
-  )
-
-  const collectionHandles = collections.map(
-    (collection: StoreCollection) => collection.handle
-  )
-
-  const staticParams = countryCodes
-    ?.map((countryCode: string) =>
-      collectionHandles.map((handle: string | undefined) => ({
-        countryCode,
-        handle,
-      }))
-    )
-    .flat()
-
-  return staticParams
-}
-
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const collection = await getCollectionByHandle(params.handle)
-
-  if (!collection) {
-    notFound()
-  }
-
-  const metadata = {
-    title: `${collection.title} | Medusa Store`,
-    description: `${collection.title} collection`,
-  } as Metadata
-
-  return metadata
-}
-
-export default async function CollectionPage({ params, searchParams }: Props) {
-  const { sortBy, page } = searchParams
-
-  const collection = await getCollectionByHandle(params.handle).then(
-    (collection: StoreCollection) => collection
-  )
-
-  if (!collection) {
-    notFound()
-  }
 
   return (
-    <CollectionTemplate
-      collection={collection}
-      page={page}
-      sortBy={sortBy}
-      countryCode={params.countryCode}
-    />
+    <div className="flex flex-col gap-y-10 content-container py-6">
+      {collections.map((collection: StoreCollection & { products?: any[] }) => (
+        <div key={collection.id}>
+          <h2 className="text-2xl font-semibold mb-4">{collection.title}</h2>
+
+          {collection.products && collection.products.length > 0 ? (
+            <ul className="grid grid-cols-2 small:grid-cols-3 medium:grid-cols-4 gap-6">
+              {collection.products.map((product) => (
+                <li key={product.id}>
+                  <ProductPreview product={product} region={region} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-500">No products found in this collection.</p>
+          )}
+        </div>
+      ))}
+    </div>
   )
 }

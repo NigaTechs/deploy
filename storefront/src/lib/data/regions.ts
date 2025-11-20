@@ -3,6 +3,7 @@ import medusaError from "@lib/util/medusa-error"
 import { cache } from "react"
 import { HttpTypes } from "@medusajs/types"
 
+// 🔹 Keep the listRegions function — Nav depends on it
 export const listRegions = cache(async function () {
   return sdk.store.region
     .list({}, { next: { tags: ["regions"] } })
@@ -19,30 +20,38 @@ export const retrieveRegion = cache(async function (id: string) {
 
 const regionMap = new Map<string, HttpTypes.StoreRegion>()
 
-export const getRegion = cache(async function (countryCode: string) {
+// 🔹 Improved getRegion with fallback (this is the important part)
+export const getRegion = cache(async function (countryCode?: string) {
   try {
-    if (regionMap.has(countryCode)) {
-      return regionMap.get(countryCode)
-    }
-
     const regions = await listRegions()
 
-    if (!regions) {
+    if (!regions || regions.length === 0) {
+      console.warn("⚠️ No regions found in Medusa backend.")
       return null
     }
 
+    // Cache region-country mappings
     regions.forEach((region) => {
       region.countries?.forEach((c) => {
         regionMap.set(c?.iso_2 ?? "", region)
       })
     })
 
-    const region = countryCode
-      ? regionMap.get(countryCode)
-      : regionMap.get("us")
+    // Try to get by countryCode
+    let region =
+      (countryCode && regionMap.get(countryCode)) ||
+      regions.find((r) => r.name.toLowerCase() === "zimb") ||
+      regions.find((r) => r.name.toLowerCase() === "ghana") ||
+      regions[0]
+
+    if (!region) {
+      console.error("❌ No matching region found, returning null.")
+      return null
+    }
 
     return region
-  } catch (e: any) {
+  } catch (e) {
+    console.error("❌ Error in getRegion:", e)
     return null
   }
 })
