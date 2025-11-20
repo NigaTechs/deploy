@@ -5,6 +5,9 @@ import { getRegion } from "./regions"
 import { SortOptions } from "@modules/store/components/refinement-list/sort-products"
 import { sortProducts } from "@lib/util/sort-products"
 
+/**
+ * ✅ Get products by their IDs
+ */
 export const getProductsById = cache(async function ({
   ids,
   regionId,
@@ -12,34 +15,39 @@ export const getProductsById = cache(async function ({
   ids: string[]
   regionId: string
 }) {
-  return sdk.store.product
-    .list(
-      {
-        id: ids,
-        region_id: regionId,
-        fields: "*variants.calculated_price,+variants.inventory_quantity",
-      },
-      { next: { tags: ["products"] } }
-    )
-    .then(({ products }) => products)
+  const { products } = await sdk.store.product.list(
+    {
+      id: ids,
+      region_id: regionId,
+      fields: "*variants.calculated_price,+variants.inventory_quantity",
+    },
+    { next: { tags: ["products"] } }
+  )
+  return products
 })
 
+/**
+ * ✅ Get single product by handle
+ */
 export const getProductByHandle = cache(async function (
   handle: string,
   regionId: string
 ) {
-  return sdk.store.product
-    .list(
-      {
-        handle,
-        region_id: regionId,
-        fields: "*variants.calculated_price,+variants.inventory_quantity",
-      },
-      { next: { tags: ["products"] } }
-    )
-    .then(({ products }) => products[0])
+  const { products } = await sdk.store.product.list(
+    {
+      handle,
+      region_id: regionId,
+      fields: "*variants.calculated_price,+variants.inventory_quantity",
+    },
+    { next: { tags: ["products"] } }
+  )
+  return products[0]
 })
 
+/**
+ * ✅ Get all products directly from Medusa (bypassing MeiliSearch)
+ * Pagination-ready and region-aware
+ */
 export const getProductsList = cache(async function ({
   pageParam = 1,
   queryParams,
@@ -53,48 +61,65 @@ export const getProductsList = cache(async function ({
   nextPage: number | null
   queryParams?: HttpTypes.FindParams & HttpTypes.StoreProductParams
 }> {
+  console.log("🔥 getProductsList CALLED with countryCode:", countryCode)
+
   const limit = queryParams?.limit || 12
-  const validPageParam = Math.max(pageParam, 1);
+  const validPageParam = Math.max(pageParam, 1)
   const offset = (validPageParam - 1) * limit
-  const region = await getRegion(countryCode)
+
+  // 🔥 Try to resolve region, fallback to the first available one
+  let region = await getRegion(countryCode)
 
   if (!region) {
+    console.warn(
+      `⚠️ No region found for countryCode "${countryCode}". Attempting fallback...`
+    )
+    try {
+      const { regions } = await sdk.store.region.list()
+      region = regions?.[0]
+      if (region) {
+        console.log("✅ Fallback region used:", region.name, region.id)
+      }
+    } catch (e) {
+      console.error("❌ Failed to fetch fallback region:", e)
+    }
+  }
+
+  if (!region) {
+    console.error("❌ Still no region found — returning empty product list.")
     return {
       response: { products: [], count: 0 },
       nextPage: null,
     }
   }
-  return sdk.store.product
-    .list(
-      {
-        limit,
-        offset,
-        region_id: region.id,
-        fields: "*variants.calculated_price",
-        ...queryParams,
-      },
-      { next: { tags: ["products"] } }
-    )
-    .then(({ products, count }) => {
-      const nextPage = count > offset + limit ? pageParam + 1 : null
 
-      return {
-        response: {
-          products,
-          count,
-        },
-        nextPage: nextPage,
-        queryParams,
-      }
-    })
+  const { products, count } = await sdk.store.product.list(
+    {
+      limit,
+      offset,
+      region_id: region.id,
+      fields: "*variants.calculated_price,+variants.inventory_quantity",
+      ...queryParams,
+    },
+    { next: { tags: ["products"] } }
+  )
+
+  console.log(`🧩 ${products.length} products fetched for region:`, region.name)
+
+  const nextPage = count > offset + limit ? pageParam + 1 : null
+
+  return {
+    response: { products, count },
+    nextPage,
+    queryParams,
+  }
 })
 
 /**
- * This will fetch 100 products to the Next.js cache and sort them based on the sortBy parameter.
- * It will then return the paginated products based on the page and limit parameters.
+ * ✅ Sort & paginate products client-side
  */
 export const getProductsListWithSort = cache(async function ({
-  page = 0,
+  page = 1, // ⚠ start pages from 1, not 0
   queryParams,
   sortBy = "created_at",
   countryCode,
@@ -113,7 +138,7 @@ export const getProductsListWithSort = cache(async function ({
   const {
     response: { products, count },
   } = await getProductsList({
-    pageParam: 0,
+    pageParam: 1, // fetch first 100
     queryParams: {
       ...queryParams,
       limit: 100,
@@ -123,11 +148,16 @@ export const getProductsListWithSort = cache(async function ({
 
   const sortedProducts = sortProducts(products, sortBy)
 
-  const pageParam = (page - 1) * limit
+  // ✅ page is now 1-based
+  const start = (page - 1) * limit
+  const end = start + limit
 
-  const nextPage = count > pageParam + limit ? pageParam + limit : null
+  const paginatedProducts = sortedProducts.slice(start, end)
+  const nextPage = end < count ? page + 1 : null
 
-  const paginatedProducts = sortedProducts.slice(pageParam, pageParam + limit)
+  console.log(
+    `⚙️ getProductsListWithSort returning ${paginatedProducts.length} of ${count} products (page ${page})`
+  )
 
   return {
     response: {
@@ -138,3 +168,4 @@ export const getProductsListWithSort = cache(async function ({
     queryParams,
   }
 })
+
