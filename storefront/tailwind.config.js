@@ -12,7 +12,6 @@ module.exports = {
   ],
   theme: {
     extend: {
-
       transitionProperty: {
         width: "width margin",
         height: "height",
@@ -34,9 +33,6 @@ module.exports = {
           70: "#374151",
           80: "#1F2937",
           90: "#111827",
-          techblue: "#0a2540",
-          techlight: "#1d4ed8",
-          techgray: "#f3f4f6",
         },
       },
       borderRadius: {
@@ -64,7 +60,6 @@ module.exports = {
       },
       fontFamily: {
         sans: [
-          "Montserrat", "sans-serif",
           "Inter",
           "-apple-system",
           "BlinkMacSystemFont",
@@ -164,10 +159,4 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-radix")()],
-  colors: {
-  techblue: "#1e3a89",
-  techlight: "#1d4ed8",
-  techgray: "#f3f4f6",
-}
-
 }

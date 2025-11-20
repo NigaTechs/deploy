@@ -1,6 +1,6 @@
 "use server"
 
-import { SEARCH_INDEX_NAME, searchClient } from "../../app/[countryCode]/(main)/search/search-client"
+import { SEARCH_INDEX_NAME, searchClient } from "@lib/search-client"
 
 interface Hits {
   readonly objectID?: string

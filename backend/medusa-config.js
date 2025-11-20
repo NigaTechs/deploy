@@ -81,6 +81,12 @@ const medusaConfig = {
         ],
       },
     },
+    {
+      key: Modules.CURRENCY,
+      resolve: "@medusajs/currency",
+      options: {},
+    },
+
     ...(REDIS_URL
       ? [
           {

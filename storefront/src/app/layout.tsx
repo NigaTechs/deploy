@@ -1,22 +1,16 @@
-import "../styles/globals.css"              // or your fixed alias
-import type { Metadata } from "next"
-import { getBaseURL } from "@lib/util/env"  // if this alias is valid
-import Providers from "./providers"
-import Footer from "@modules/layout/templates/footer"
-
+import { getBaseURL } from "@lib/util/env"
+import { Metadata } from "next"
+import "styles/globals.css"
 
 export const metadata: Metadata = {
   metadataBase: new URL(getBaseURL()),
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html lang="en" data-mode="light">
       <body>
-        <Providers>
-          <main className="relative">{children}</main>
-        </Providers>
-        <Footer />
+        <main className="relative">{props.children}</main>
       </body>
     </html>
   )

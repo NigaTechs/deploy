@@ -1,102 +1,62 @@
-import { cache } from "react"
 import { sdk } from "@lib/config"
-import { getProductsList } from "@lib/data/products"
-import { getRegion } from "@lib/data/regions"
-import type { HttpTypes } from "@medusajs/types"
+import { cache } from "react"
+import { getProductsList } from "./products"
+import { HttpTypes } from "@medusajs/types"
 
-/**
- * Return ALL collections (array), not { collections }
- */
-export const getCollectionsList = cache(async function (): Promise<HttpTypes.StoreCollection[]> {
-  try {
-    const { collections } = await sdk.store.collection.list(
-      { limit: 100 },
-      { next: { tags: ["collections"] } }
-    )
-    return collections ?? []
-  } catch (e) {
-    console.warn("⚠️ getCollectionsList failed:", e)
-    return []
-  }
+export const retrieveCollection = cache(async function (id: string) {
+  return sdk.store.collection
+    .retrieve(id, {}, { next: { tags: ["collections"] } })
+    .then(({ collection }) => collection)
 })
 
-/**
- * Get a single collection by handle.
- * Always returns a collection object OR null — never throws.
- */
+export const getCollectionsList = cache(async function (
+  offset: number = 0,
+  limit: number = 100
+): Promise<{ collections: HttpTypes.StoreCollection[]; count: number }> {
+  return sdk.store.collection
+    .list({ limit, offset: 0 }, { next: { tags: ["collections"] } })
+    .then(({ collections }) => ({ collections, count: collections.length }))
+})
+
 export const getCollectionByHandle = cache(async function (
   handle: string
-): Promise<HttpTypes.StoreCollection | null> {
-  try {
-    const { collections } = await sdk.store.collection.list(
-      { handle, limit: 1 },
-      { next: { tags: ["collections"] } }
-    )
-    return (collections && collections[0]) ?? null
-  } catch (e) {
-    console.warn("⚠️ getCollectionByHandle failed for handle:", handle, e)
-    return null
-  }
+): Promise<HttpTypes.StoreCollection> {
+  return sdk.store.collection
+    .list({ handle }, { next: { tags: ["collections"] } })
+    .then(({ collections }) => collections[0])
 })
 
-/**
- * Get all collections and attach their products for a given countryCode.
- * NEVER throws. Returns [] on any failure.
- */
-export const getCollectionsWithProducts = cache(async function (
-  countryCode: string
-): Promise<Array<HttpTypes.StoreCollection & { products: HttpTypes.StoreProduct[] }>> {
-  try {
-    const region = await getRegion(countryCode)
+export const getCollectionsWithProducts = cache(
+  async (countryCode: string): Promise<HttpTypes.StoreCollection[] | null> => {
+    const { collections } = await getCollectionsList(0, 3)
 
-    if (!region || !region.id) {
-      console.warn("⚠️ getCollectionsWithProducts: missing/invalid region for", countryCode, region)
-      return []
+    if (!collections) {
+      return null
     }
 
-    const { collections } = await sdk.store.collection.list(
-      {},
-      { next: { tags: ["collections"] } }
-    )
+    const collectionIds = collections
+      .map((collection) => collection.id)
+      .filter(Boolean) as string[]
 
-    if (!collections || collections.length === 0) {
-      console.warn("⚠️ getCollectionsWithProducts: no collections for", countryCode)
-      return []
-    }
+    const { response } = await getProductsList({
+      queryParams: { collection_id: collectionIds },
+      countryCode,
+    })
 
-    const results: Array<HttpTypes.StoreCollection & { products: HttpTypes.StoreProduct[] }> = []
+    response.products.forEach((product) => {
+      const collection = collections.find(
+        (collection) => collection.id === product.collection_id
+      )
 
-    // Fetch products per collection (sequential keeps it simple & avoids rate spikes)
-    for (const collection of collections) {
-      try {
-const { response } = await getProductsList({
-  pageParam: 1,
-  // 👇 Cast so TS stops complaining
-  queryParams: {
-    collection_id: [collection.id],
-    region_id: region.id,
-    limit: 100,
-  } as unknown as Record<string, any>,
-  countryCode,
-})
+      if (collection) {
+        if (!collection.products) {
+          collection.products = []
+        }
 
-
-        results.push({
-          ...collection,
-          products: response?.products ?? [],
-        })
-      } catch (e) {
-        console.warn(`⚠️ Failed products fetch for collection ${collection.id}:`, e)
-        results.push({
-          ...collection,
-          products: [],
-        })
+        collection.products.push(product as any)
       }
-    }
+    })
 
-    return results
-  } catch (e) {
-    console.warn("⚠️ getCollectionsWithProducts failed:", e)
-    return []
+    return collections as unknown as HttpTypes.StoreCollection[]
   }
-})
+)

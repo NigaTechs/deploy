@@ -29,25 +29,33 @@ export default async function PaginatedProducts({
   productsIds?: string[]
   countryCode: string
 }) {
-  console.log("📦 PaginatedProducts started — fetching for:", countryCode)
+  const queryParams: PaginatedProductsParams = {
+    limit: 12,
+  }
 
-  const queryParams: PaginatedProductsParams = { limit: PRODUCT_LIMIT }
+  if (collectionId) {
+    queryParams["collection_id"] = [collectionId]
+  }
 
-  if (collectionId) queryParams["collection_id"] = [collectionId]
-  if (categoryId) queryParams["category_id"] = [categoryId]
-  if (productsIds) queryParams["id"] = productsIds
-  if (sortBy === "created_at") queryParams["order"] = "created_at"
+  if (categoryId) {
+    queryParams["category_id"] = [categoryId]
+  }
+
+  if (productsIds) {
+    queryParams["id"] = productsIds
+  }
+
+  if (sortBy === "created_at") {
+    queryParams["order"] = "created_at"
+  }
 
   const region = await getRegion(countryCode)
 
   if (!region) {
-    console.warn("⚠️ No region found for:", countryCode)
-    return <p>No region found. Please check your region configuration.</p>
+    return null
   }
 
-  console.log("🌍 Using region:", region.name, region.id)
-
-  const {
+  let {
     response: { products, count },
   } = await getProductsListWithSort({
     page,
@@ -55,8 +63,6 @@ export default async function PaginatedProducts({
     sortBy,
     countryCode,
   })
-
-  console.log(`🧩 ${products.length} products fetched (total count: ${count})`)
 
   const totalPages = Math.ceil(count / PRODUCT_LIMIT)
 
@@ -66,13 +72,14 @@ export default async function PaginatedProducts({
         className="grid grid-cols-2 w-full small:grid-cols-3 medium:grid-cols-4 gap-x-6 gap-y-8"
         data-testid="products-list"
       >
-        {products.map((p) => (
-          <li key={p.id}>
-            <ProductPreview product={p} region={region} />
-          </li>
-        ))}
+        {products.map((p) => {
+          return (
+            <li key={p.id}>
+              <ProductPreview product={p} region={region} />
+            </li>
+          )
+        })}
       </ul>
-
       {totalPages > 1 && (
         <Pagination
           data-testid="product-pagination"

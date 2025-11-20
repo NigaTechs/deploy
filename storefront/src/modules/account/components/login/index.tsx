@@ -43,11 +43,21 @@ const Login = ({ setCurrentView }: Props) => {
           />
         </div>
         <ErrorMessage error={message} data-testid="login-error-message" />
-        <SubmitButton data-testid="sign-in-button" className="w-full mt-6 bg-blue-950 hover:bg-blue-955">
+        <SubmitButton data-testid="sign-in-button" className="w-full mt-6">
           Sign in
         </SubmitButton>
       </form>
-
+      <span className="text-center text-ui-fg-base text-small-regular mt-6">
+        Not a member?{" "}
+        <button
+          onClick={() => setCurrentView(LOGIN_VIEW.REGISTER)}
+          className="underline"
+          data-testid="register-button"
+        >
+          Join us
+        </button>
+        .
+      </span>
     </div>
   )
 }
