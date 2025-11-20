@@ -1,68 +1,73 @@
 "use client"
 
-import * as React from "react"
-import { Minus, Plus } from "lucide-react"
-type CartItemSelectProps = {
-  value: number
-  onChange: (val: number) => void
-  min?: number
-  max?: number
-  className?: string
-  ["data-testid"]?: string
-}
-const CartItemSelect: React.FC<CartItemSelectProps> = ({
-  value,
-  onChange,
-  min = 1,
-  max = 10,
-  className,
-  ...rest
-}) => {
-  const [qty, setQty] = React.useState<number>(value)
+import { IconBadge, clx } from "@medusajs/ui"
+import {
+  SelectHTMLAttributes,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react"
 
-  React.useEffect(() => {
-    setQty(value)
-  }, [value])
+import ChevronDown from "@modules/common/icons/chevron-down"
 
-  const handleChange = (newQty: number) => {
-    if (newQty < min || newQty > max) return
-    setQty(newQty)
-    onChange?.(newQty)
+type NativeSelectProps = {
+  placeholder?: string
+  errors?: Record<string, unknown>
+  touched?: Record<string, unknown>
+} & Omit<SelectHTMLAttributes<HTMLSelectElement>, "size">
+
+const CartItemSelect = forwardRef<HTMLSelectElement, NativeSelectProps>(
+  ({ placeholder = "Select...", className, children, ...props }, ref) => {
+    const innerRef = useRef<HTMLSelectElement>(null)
+    const [isPlaceholder, setIsPlaceholder] = useState(false)
+
+    useImperativeHandle<HTMLSelectElement | null, HTMLSelectElement | null>(
+      ref,
+      () => innerRef.current
+    )
+
+    useEffect(() => {
+      if (innerRef.current && innerRef.current.value === "") {
+        setIsPlaceholder(true)
+      } else {
+        setIsPlaceholder(false)
+      }
+    }, [innerRef.current?.value])
+
+    return (
+      <div>
+        <IconBadge
+          onFocus={() => innerRef.current?.focus()}
+          onBlur={() => innerRef.current?.blur()}
+          className={clx(
+            "relative flex items-center txt-compact-small border text-ui-fg-base group",
+            className,
+            {
+              "text-ui-fg-subtle": isPlaceholder,
+            }
+          )}
+        >
+          <select
+            ref={innerRef}
+            {...props}
+            className="appearance-none bg-transparent border-none px-4 transition-colors duration-150 focus:border-gray-700 outline-none w-16 h-16 items-center justify-center"
+          >
+            <option disabled value="">
+              {placeholder}
+            </option>
+            {children}
+          </select>
+          <span className="absolute flex pointer-events-none justify-end w-8 group-hover:animate-pulse">
+            <ChevronDown />
+          </span>
+        </IconBadge>
+      </div>
+    )
   }
+)
 
-  return (
-    <div
-      className={[
-        "flex items-center border border-gray-300 rounded-lg shadow-sm bg-white w-fit",
-        className || "",
-      ].join(" ")}
-      {...rest}
-    >
-      <button
-        type="button"
-        onClick={() => handleChange(qty - 1)}
-        disabled={qty <= min}
-        className="flex items-center justify-center w-10 h-10 text-gray-700 hover:text-white hover:bg-blue-600 rounded-[3px] disabled:opacity-40 transition-colors duration-150"
-        aria-label="Decrease quantity"
-      >
-        <Minus className="w-4 h-4" />
-      </button>
-
-      <span className="px-4 text-sm font-semibold text-gray-800 select-none">
-        {qty}
-      </span>
-
-      <button
-        type="button"
-        onClick={() => handleChange(qty + 1)}
-        disabled={qty >= max}
-        className="flex items-center justify-center w-10 h-10 text-gray-700 hover:text-white hover:bg-blue-600 rounded-[3px] disabled:opacity-40 transition-colors duration-150"
-        aria-label="Increase quantity"
-      >
-        <Plus className="w-4 h-4" />
-      </button>
-    </div>
-  )
-}
+CartItemSelect.displayName = "CartItemSelect"
 
 export default CartItemSelect

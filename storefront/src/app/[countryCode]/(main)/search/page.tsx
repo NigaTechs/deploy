@@ -1,13 +1,5 @@
-import SearchClient from "./search-client"
-import { getRegion } from "@lib/data/regions"
+import SearchModal from "@modules/search/templates/search-modal"
 
-export default async function SearchPage({ params }: any) {
-  const region = await getRegion(params.countryCode)
-
-  return (
-    <SearchClient
-      region={region}
-      country={params.countryCode}
-    />
-  )
+export default function SearchModalRoute() {
+  return <SearchModal />
 }
