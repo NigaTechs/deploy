@@ -4,7 +4,7 @@ import { IconProps } from "types/icon"
 
 const Trash: React.FC<IconProps> = ({
   size = "16",
-  color = "currentColor",
+  color = "red",
   ...attributes
 }) => {
   return (
